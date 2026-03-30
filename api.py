@@ -1,32 +1,72 @@
-from fastapi import APIRouter, HTTPException
-from schemas import TodoCreate, Todo
-from database import add_todo, get_all_todos, get_todo, update_todo, delete_todo
 
-router = APIRouter(prefix="/todos", tags=["Todos"])
+from typing import List
 
-@router.get("/", response_model=list[Todo])
-def read_todos():
-    return get_all_todos()
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy import select
+from schemas import TodoCreate, TodoOut, TodoUpdate
+from database import Base, get_db, engine
+from models import Todo
 
-@router.post("/", response_model=Todo)
-def create_todo(todo: TodoCreate):
-    return add_todo(todo.dict())
 
-@router.get("/{todo_id}", response_model=Todo)
-def read_todo(todo_id: int):
-    todo = get_todo(todo_id)
-    if not todo:
-        raise HTTPException(status_code=404, detail="Vazifa topilmadi!")
+Base.metadata.create_all(bind=engine)
+api_router = APIRouter(prefix='/api/todo')
+
+
+@api_router.post('/', response_model=TodoOut)
+def create_todo(todo_in: TodoCreate, db = Depends(get_db)):
+    todo = Todo(**todo_in.model_dump())
+
+    db.add(todo)
+    db.commit()
+    db.refresh(todo)
+
     return todo
 
-@router.put("/{todo_id}", response_model=Todo)
-def update_todo_item(todo_id: int, todo: TodoCreate):
-    updated = update_todo(todo_id, todo.dict())
-    if not updated:
-        raise HTTPException(status_code=404, detail="Vazifa topilmadi!")
-    return updated
 
-@router.delete("/{todo_id}")
-def delete_todo_item(todo_id: int):
-    delete_todo(todo_id)
-    return {"detail": "Vazifa o'chirildi!"}
+@api_router.get('/', response_model=List[TodoOut])
+def get_todos(db = Depends(get_db)):
+    stmt = select(Todo)
+    todos = db.scalars(stmt).all()
+
+    return todos
+
+
+@api_router.get("/{todo_id}", response_model=TodoOut)
+def get_todo(todo_id: int, db = Depends(get_db)):
+    stmt = select(Todo).where(Todo.id == todo_id)
+    todo = db.scalar(stmt)
+    if not todo:
+        raise HTTPException(status_code=404, detail="Topilmadi")
+    return todo
+
+
+
+@api_router.put("/{todo_id}", response_model=TodoOut)
+def update_todo(todo_id: int, todo_in: TodoUpdate, db=Depends(get_db)):
+    stmt = select(Todo).where(Todo.id == todo_id)
+    todo: TodoOut = db.scalar(stmt)
+
+    if not todo:
+        raise HTTPException(status_code=404, detail= f"{todo_id} - raqamli vazifa topilmadi!")
+
+    todo.name = todo_in.name
+    todo.description = todo_in.description
+    todo.is_completed = todo_in.is_completed
+
+    db.add(todo)
+    db.commit()
+    db.refresh(todo)
+
+    return todo
+
+@api_router.delete("/{todo_id}")
+def delete_ticket(todo_id: int, db=Depends(get_db)):
+    todo = db.get(Todo, todo_id)
+
+    if not todo:
+        raise HTTPException(status_code=404, detail=f"{todo_id} - raqamli vazifa topilmadi!")
+
+    db.delete(todo)
+    db.commit()
+
+    return {"message": f"{todo_id} - raqamli vazifa o'chirildi!"}

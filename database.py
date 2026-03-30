@@ -1,35 +1,25 @@
-todos = []
-current_id = 1
+from sqlalchemy.engine import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-def add_todo(todo_data: dict):
-    global current_id
-    todo = {
-        "id": current_id,
-        "title": todo_data.get("title", "No title"),
-        "description": todo_data.get("description"),
-        "completed": todo_data.get("completed", False)
-    }
-    todos.append(todo)
-    current_id += 1
-    return todo
+DATABASE_URL = 'sqlite:///./db.sqlite3'
 
-def get_all_todos():
-    return todos
 
-def get_todo(todo_id: int):
-    for todo in todos:
-        if todo["id"] == todo_id:
-            return todo
-    return None
+engine = create_engine(DATABASE_URL,
+                       connect_args={'check_same_thread': False},
+                       echo=True)
 
-def update_todo(todo_id: int, todo_data: dict):
-    todo = get_todo(todo_id)
-    if todo:
-        todo.update(todo_data)
-        return todo
-    return None
 
-def delete_todo(todo_id: int):
-    global todos
-    todos = [t for t in todos if t["id"] != todo_id]
-    return True
+Session = sessionmaker(bind=engine, autoflush=False)
+
+class Base(DeclarativeBase):
+    pass
+
+
+def get_db():
+    try:
+        db_sesion = Session()
+        yield db_sesion
+    except Exception as e:
+        raise e
+    finally:
+        db_sesion.close()

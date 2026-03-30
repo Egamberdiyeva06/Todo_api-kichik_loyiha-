@@ -1,16 +1,19 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
 
 class TodoBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    completed: bool = False  
+    name: str = Field(max_length=100)
+    description: str = Field(max_length=200)  
     
 class TodoCreate(TodoBase):
     pass  
 
-class Todo(TodoBase):
-    id: int
+class TodoOut(TodoBase):
+    id: int = Field(ge=1)
+    is_completed: bool = Field(default=False)
+    
+
+class TodoUpdate(TodoBase):
+    is_completed: bool = Field(default=False)
 
     class Config:
         from_attributes = True
