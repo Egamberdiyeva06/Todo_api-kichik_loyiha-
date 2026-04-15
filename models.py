@@ -9,11 +9,12 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(length=50), unique=True)
     first_name: Mapped[str] = mapped_column(String(length=50))
     last_name: Mapped[str] = mapped_column(String(length=50))
 
     todos: Mapped[list['Todo']] = relationship("Todo", back_populates='user', cascade='all, delete-orphan', lazy='selectin')
-
+    hashed_password: Mapped[str] = mapped_column(String(length=200))
 
 
 class Todo(Base):

@@ -1,146 +1,948 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-<meta charset="UTF-8">
-<title>Todo Pro UI</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Todo App</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
-<script src="https://cdn.tailwindcss.com"></script>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --border: #2a2a32;
+    --accent: #7c6aff;
+    --accent2: #ff6a8a;
+    --text: #e8e8f0;
+    --muted: #7a7a8c;
+    --success: #4ade80;
+    --danger: #f87171;
+    --warning: #fbbf24;
+  }
 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── TOAST ── */
+  #toast-container {
+    position: fixed; top: 20px; right: 20px;
+    z-index: 9999; display: flex; flex-direction: column; gap: 10px;
+  }
+  .toast {
+    padding: 14px 20px; border-radius: 10px; font-size: 14px;
+    font-weight: 500; min-width: 260px; max-width: 340px;
+    animation: slideIn .3s ease;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  }
+  .toast.success { background: #14291f; border: 1px solid #4ade8050; color: var(--success); }
+  .toast.error   { background: #2d1a1a; border: 1px solid #f8717150; color: var(--danger); }
+  .toast.info    { background: #1a1a2d; border: 1px solid #7c6aff50; color: var(--accent); }
+  @keyframes slideIn { from { opacity:0; transform:translateX(60px); } to { opacity:1; transform:translateX(0); } }
+
+  /* ── AUTH SCREEN ── */
+  #auth-screen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 30% 40%, #1a1230 0%, #0d0d0f 60%),
+                radial-gradient(ellipse at 80% 80%, #1a0a1a 0%, transparent 50%);
+  }
+
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 44px;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 32px 80px rgba(0,0,0,.5);
+  }
+
+  .auth-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px; font-weight: 800;
+    text-align: center; margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .auth-sub {
+    text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 36px;
+  }
+
+  .tab-row {
+    display: flex; background: var(--bg);
+    border-radius: 10px; padding: 4px; margin-bottom: 28px;
+  }
+  .tab-btn {
+    flex: 1; padding: 10px; border: none; background: transparent;
+    color: var(--muted); cursor: pointer; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    transition: all .2s;
+  }
+  .tab-btn.active {
+    background: var(--accent); color: #fff;
+    box-shadow: 0 4px 14px rgba(124,106,255,.35);
+  }
+
+  .auth-form { display: flex; flex-direction: column; gap: 16px; }
+  .auth-form.hidden { display: none; }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+  .form-group input {
+    padding: 12px 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    transition: border-color .2s, box-shadow .2s;
+    outline: none;
+  }
+  .form-group input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,106,255,.15);
+  }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn-primary {
+    padding: 13px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), #5a4fd8);
+    color: #fff; font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    margin-top: 4px;
+  }
+  .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+  /* ── MAIN APP ── */
+  #app-screen { display: none; min-height: 100vh; }
+
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: 240px; background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 28px 0;
+    z-index: 100;
+  }
+
+  .sidebar-logo {
+    font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800;
+    padding: 0 24px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 24px; cursor: pointer;
+    color: var(--muted); font-size: 14px; font-weight: 500;
+    transition: all .2s; border-left: 3px solid transparent;
+    user-select: none;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(124,106,255,.06); }
+  .nav-item.active {
+    color: var(--accent); border-left-color: var(--accent);
+    background: rgba(124,106,255,.1);
+  }
+  .nav-icon {
+    width: 18px; height: 18px; flex-shrink: 0;
+  }
+
+  .sidebar-footer {
+    margin-top: auto; padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .user-badge {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; background: var(--bg);
+    border-radius: 10px; margin-bottom: 10px;
+  }
+  .user-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: #fff;
+  }
+  .user-name { font-size: 13px; font-weight: 500; }
+  .btn-logout {
+    width: 100%; padding: 9px; border: 1px solid var(--border);
+    background: transparent; color: var(--danger);
+    border-radius: 8px; cursor: pointer; font-size: 13px;
+    font-family: 'DM Sans', sans-serif; font-weight: 500;
+    transition: all .2s;
+  }
+  .btn-logout:hover { background: rgba(248,113,113,.1); border-color: var(--danger); }
+
+  .main-content {
+    margin-left: 240px; padding: 36px 40px;
+    min-height: 100vh;
+  }
+
+  /* ── PAGES ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 32px;
+  }
+  .page-title {
+    font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700;
+  }
+  .page-title span { color: var(--accent); }
+
+  /* ── STATS ── */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px;
+  }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800; }
+  .stat-value.purple { color: var(--accent); }
+  .stat-value.green  { color: var(--success); }
+  .stat-value.pink   { color: var(--accent2); }
+
+  /* ── CARDS / TABLE ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; overflow: hidden;
+  }
+  .card-header {
+    padding: 18px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; }
+
+  .btn-add {
+    padding: 9px 18px; border: none;
+    background: var(--accent); color: #fff;
+    border-radius: 8px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+    transition: opacity .2s;
+  }
+  .btn-add:hover { opacity: .85; }
+
+  .search-bar {
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+  }
+  .search-bar input {
+    width: 100%; padding: 10px 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none;
+    transition: border-color .2s;
+  }
+  .search-bar input:focus { border-color: var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left; padding: 12px 24px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); background: rgba(0,0,0,.2);
+  }
+  td {
+    padding: 14px 24px; border-top: 1px solid var(--border);
+    font-size: 14px;
+  }
+  tr:hover td { background: rgba(124,106,255,.04); }
+
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  }
+  .badge.done   { background: rgba(74,222,128,.15); color: var(--success); }
+  .badge.pending{ background: rgba(251,191,36,.12); color: var(--warning); }
+
+  .action-btns { display: flex; gap: 8px; }
+  .btn-icon {
+    padding: 6px 12px; border-radius: 6px; font-size: 12px;
+    font-family: 'DM Sans', sans-serif; font-weight: 500;
+    cursor: pointer; border: none; transition: opacity .2s;
+  }
+  .btn-edit { background: rgba(124,106,255,.15); color: var(--accent); }
+  .btn-del  { background: rgba(248,113,113,.15); color: var(--danger); }
+  .btn-icon:hover { opacity: .7; }
+
+  .empty-state {
+    padding: 60px 24px; text-align: center; color: var(--muted);
+    font-size: 14px;
+  }
+
+  /* ── MODAL ── */
+  .modal-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.7); z-index: 1000;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 36px; width: 100%; max-width: 460px;
+    box-shadow: 0 40px 100px rgba(0,0,0,.6);
+    animation: popIn .25s ease;
+  }
+  @keyframes popIn { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:scale(1); } }
+  .modal-title {
+    font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700;
+    margin-bottom: 24px;
+  }
+  .modal-form { display: flex; flex-direction: column; gap: 14px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+  .btn-cancel {
+    flex: 1; padding: 11px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    border-radius: 8px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    transition: all .2s;
+  }
+  .btn-cancel:hover { border-color: var(--text); color: var(--text); }
+  .btn-save {
+    flex: 2; padding: 11px; border: none;
+    background: var(--accent); color: #fff;
+    border-radius: 8px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    transition: opacity .2s;
+  }
+  .btn-save:hover { opacity: .85; }
+
+  textarea {
+    padding: 12px 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    outline: none; resize: vertical; min-height: 90px;
+    transition: border-color .2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+
+  select {
+    padding: 12px 16px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    outline: none; cursor: pointer;
+    transition: border-color .2s;
+    appearance: none;
+  }
+  select:focus { border-color: var(--accent); }
+
+  .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+  @media (max-width: 768px) {
+    .sidebar { width: 200px; }
+    .main-content { margin-left: 200px; padding: 24px; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
 </head>
-<body class="bg-gray-100">
+<body>
 
-<div class="max-w-4xl mx-auto p-5">
+<div id="toast-container"></div>
 
-    <h1 class="text-3xl font-bold text-center mb-6 text-blue-600">
-        🚀 Todo App Pro
-    </h1>
+<!-- ═══════════════ AUTH SCREEN ═══════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">TaskFlow</div>
+    <div class="auth-sub">Vazifalaringizni boshqaring</div>
 
-    <!-- USER -->
-    <div class="bg-white p-4 rounded-xl shadow mb-4">
-        <h2 class="font-semibold mb-2">User qo‘shish</h2>
-        <input id="first_name" placeholder="Ism" class="border p-2 w-full mb-2 rounded">
-        <input id="last_name" placeholder="Familiya" class="border p-2 w-full mb-2 rounded">
-        <button onclick="addUser()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-            Qo‘shish
-        </button>
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('login')">Kirish</button>
+      <button class="tab-btn" onclick="switchTab('register')">Ro'yxat</button>
     </div>
 
-    <!-- TODO -->
-    <div class="bg-white p-4 rounded-xl shadow mb-4">
-        <h2 class="font-semibold mb-2">Todo qo‘shish</h2>
-        <input id="todo_name" placeholder="Nomi" class="border p-2 w-full mb-2 rounded">
-        <input id="todo_desc" placeholder="Tavsif" class="border p-2 w-full mb-2 rounded">
-        <select id="userSelect" class="border p-2 w-full mb-2 rounded"></select>
-        <button onclick="addTodo()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-            Qo‘shish
-        </button>
+    <!-- LOGIN FORM -->
+    <form class="auth-form" id="login-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="login-username" placeholder="username" required />
+      </div>
+      <div class="form-group">
+        <label>Parol</label>
+        <input type="password" id="login-password" placeholder="••••••••" required />
+      </div>
+      <button type="submit" class="btn-primary" id="login-btn">Kirish</button>
+    </form>
+
+    <!-- REGISTER FORM -->
+    <form class="auth-form hidden" id="register-form" onsubmit="handleRegister(event)">
+      <div class="row-2">
+        <div class="form-group">
+          <label>Ism</label>
+          <input type="text" id="reg-firstname" placeholder="Ali" required />
+        </div>
+        <div class="form-group">
+          <label>Familiya</label>
+          <input type="text" id="reg-lastname" placeholder="Valiyev" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="reg-username" placeholder="ali_valiyev" required />
+      </div>
+      <div class="form-group">
+        <label>Parol</label>
+        <input type="password" id="reg-password" placeholder="••••••••" required />
+      </div>
+      <button type="submit" class="btn-primary" id="register-btn">Ro'yxatdan o'tish</button>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN APP ═══════════════ -->
+<div id="app-screen">
+  <aside class="sidebar">
+    <div class="sidebar-logo">TaskFlow</div>
+
+    <nav>
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1" stroke-width="2"/>
+          <rect x="14" y="3" width="7" height="7" rx="1" stroke-width="2"/>
+          <rect x="3" y="14" width="7" height="7" rx="1" stroke-width="2"/>
+          <rect x="14" y="14" width="7" height="7" rx="1" stroke-width="2"/>
+        </svg>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="showPage('todos')">
+        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-width="2" stroke-linecap="round" d="M9 12l2 2 4-4M5 13a7 7 0 1 0 14 0 7 7 0 0 0-14 0z"/>
+        </svg>
+        Vazifalar
+      </div>
+      <div class="nav-item" onclick="showPage('users')">
+        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-width="2" stroke-linecap="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4" stroke-width="2"/>
+          <path stroke-width="2" stroke-linecap="round" d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path stroke-width="2" stroke-linecap="round" d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Foydalanuvchilar
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-badge">
+        <div class="user-avatar" id="sidebar-avatar">U</div>
+        <div class="user-name" id="sidebar-name">User</div>
+      </div>
+      <button class="btn-logout" onclick="logout()">Chiqish</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <h1 class="page-title">Dashboard <span>-</span> Umumiy ko'rinish</h1>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Jami Vazifalar</div>
+          <div class="stat-value purple" id="stat-total">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Bajarilgan</div>
+          <div class="stat-value green" id="stat-done">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Foydalanuvchilar</div>
+          <div class="stat-value pink" id="stat-users">-</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Oxirgi Vazifalar</span></div>
+        <table>
+          <thead><tr><th>Nom</th><th>Holat</th></tr></thead>
+          <tbody id="dash-todos-body">
+            <tr><td colspan="2" class="loading">Yuklanmoqda...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- LIST -->
-    <div id="list" class="space-y-4"></div>
+    <!-- TODOS -->
+    <div class="page" id="page-todos">
+      <div class="page-header">
+        <h1 class="page-title">Vazifalar</h1>
+        <button class="btn-add" onclick="openTodoModal()">+ Qo'shish</button>
+      </div>
+      <div class="card">
+        <div class="search-bar">
+          <input type="text" id="todo-search" placeholder="Vazifa qidirish..." oninput="filterTodos()" />
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Nomi</th><th>Tavsif</th><th>Holat</th><th>Amallar</th></tr></thead>
+          <tbody id="todos-body">
+            <tr><td colspan="5" class="loading">Yuklanmoqda...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
+    <!-- USERS -->
+    <div class="page" id="page-users">
+      <div class="page-header">
+        <h1 class="page-title">Foydalanuvchilar</h1>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>ID</th><th>Ism</th><th>Familiya</th><th>Vazifalar</th><th>Amallar</th></tr></thead>
+          <tbody id="users-body">
+            <tr><td colspan="5" class="loading">Yuklanmoqda...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- TODO MODAL -->
+<div class="modal-bg" id="todo-modal">
+  <div class="modal">
+    <div class="modal-title" id="todo-modal-title">Yangi Vazifa</div>
+    <div class="modal-form">
+      <input type="hidden" id="todo-edit-id" />
+      <div class="form-group">
+        <label>Nomi</label>
+        <input type="text" id="todo-name" placeholder="Vazifa nomi" />
+      </div>
+      <div class="form-group">
+        <label>Tavsif</label>
+        <textarea id="todo-desc" placeholder="Qisqacha tavsif..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Holat</label>
+        <select id="todo-status">
+          <option value="false">Bajarilmagan</option>
+          <option value="true">Bajarilgan</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('todo-modal')">Bekor</button>
+        <button class="btn-save" onclick="saveTodo()">Saqlash</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- USER EDIT MODAL -->
+<div class="modal-bg" id="user-modal">
+  <div class="modal">
+    <div class="modal-title">Foydalanuvchini tahrirlash</div>
+    <div class="modal-form">
+      <input type="hidden" id="user-edit-id" />
+      <div class="row-2">
+        <div class="form-group">
+          <label>Ism</label>
+          <input type="text" id="user-firstname" />
+        </div>
+        <div class="form-group">
+          <label>Familiya</label>
+          <input type="text" id="user-lastname" />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('user-modal')">Bekor</button>
+        <button class="btn-save" onclick="saveUser()">Saqlash</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-const API = "http://127.0.0.1:8000/api";
+  const BASE = 'http://localhost:8000';
+  let TOKEN = localStorage.getItem('token') || null;
+  let CURRENT_USER = JSON.parse(localStorage.getItem('current_user') || 'null');
+  let allTodos = [];
+  let allUsers = [];
 
-async function load() {
-    const res = await fetch(API + "/users/");
-    const users = await res.json();
+  // ─── HELPERS ───────────────────────────────────────────
+  // Xato xabarini TO'G'RI ko'rsatish
+  function parseError(err) {
+    if (typeof err === 'string') return err;
+    if (err && err.detail) {
+      if (typeof err.detail === 'string') return err.detail;
+      if (Array.isArray(err.detail)) {
+        // Pydantic validation xatolari massiv ko'rinishida keladi
+        return err.detail.map(e => e.msg || JSON.stringify(e)).join(', ');
+      }
+      return JSON.stringify(err.detail);
+    }
+    if (err && err.message) return err.message;
+    return 'Noma\'lum xato';
+  }
 
-    list.innerHTML = "";
-    userSelect.innerHTML = "<option value=''>User tanlang</option>";
+  function showToast(msg, type = 'info') {
+    const c = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    const icon = type === 'success' ? 'OK' : type === 'error' ? 'Xato' : 'Info';
+    t.innerHTML = `<strong>[${icon}]</strong> ${msg}`;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
 
-    users.forEach(u => {
+  async function api(path, method = 'GET', body = null, isForm = false) {
+    const headers = {};
+    if (TOKEN) headers['Authorization'] = `Bearer ${TOKEN}`;
 
-        userSelect.innerHTML += `<option value="${u.id}">
-            ${u.first_name} ${u.last_name}
-        </option>`;
+    let fetchBody = null;
+    if (body) {
+      if (isForm) {
+        // form-data (login uchun)
+        fetchBody = new URLSearchParams(body);
+      } else {
+        headers['Content-Type'] = 'application/json';
+        fetchBody = JSON.stringify(body);
+      }
+    }
 
-        let html = `
-        <div class="bg-white p-4 rounded-xl shadow hover:shadow-lg transition">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="font-bold text-lg">${u.first_name} ${u.last_name}</h3>
-                <button onclick="deleteUser(${u.id})" class="text-red-500">❌</button>
+    const res = await fetch(`${BASE}${path}`, { method, headers, body: fetchBody });
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      // Xatoni to'g'ri parse qilish
+      throw new Error(parseError(data));
+    }
+    return data;
+  }
+
+  // ─── AUTH ───────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+    });
+    document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
+    document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    if (!username || !password) { showToast('Barcha maydonlarni to\'ldiring', 'error'); return; }
+
+    btn.disabled = true; btn.textContent = 'Yuklanmoqda...';
+    try {
+      // Login uchun form-data yuborish (OAuth2PasswordRequestForm talab qiladi)
+      const data = await api('/api/users/login', 'POST', { username, password }, true);
+      TOKEN = data.access_token;
+      localStorage.setItem('token', TOKEN);
+      showToast('Tizimga kirdingiz!', 'success');
+      await loadCurrentUserInfo(username);
+      initApp();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Kirish';
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    const btn = document.getElementById('register-btn');
+
+    const first_name = document.getElementById('reg-firstname').value.trim();
+    const last_name  = document.getElementById('reg-lastname').value.trim();
+    const username   = document.getElementById('reg-username').value.trim();
+    const password   = document.getElementById('reg-password').value;
+
+    if (!first_name || !last_name || !username || !password) {
+      showToast('Barcha maydonlarni to\'ldiring', 'error');
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Yuklanmoqda...';
+    try {
+      // Ro'yxat uchun JSON yuborish
+      await api('/api/users/', 'POST', { first_name, last_name, username, password });
+      showToast('Muvaffaqiyatli ro\'yxatdan o\'tdingiz! Endi kiring.', 'success');
+      // Avtomatik login formaga o\'tkazish
+      document.getElementById('login-username').value = username;
+      switchTab('login');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Ro\'yxatdan o\'tish';
+    }
+  }
+
+  async function loadCurrentUserInfo(username) {
+    try {
+      const users = await api('/api/users/');
+      const me = users.find(u => u.username === username);
+      if (me) {
+        CURRENT_USER = me;
+        localStorage.setItem('current_user', JSON.stringify(me));
+      }
+    } catch (_) {}
+  }
+
+  function logout() {
+    TOKEN = null; CURRENT_USER = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('current_user');
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+    showToast('Tizimdan chiqdingiz', 'info');
+  }
+
+  // ─── APP INIT ────────────────────────────────────────────
+  function initApp() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+
+    if (CURRENT_USER) {
+      const initials = ((CURRENT_USER.first_name || 'U')[0] + (CURRENT_USER.last_name || '')[0]).toUpperCase();
+      document.getElementById('sidebar-avatar').textContent = initials;
+      document.getElementById('sidebar-name').textContent =
+        `${CURRENT_USER.first_name} ${CURRENT_USER.last_name}`;
+    }
+
+    loadDashboard();
+  }
+
+  // ─── NAVIGATION ──────────────────────────────────────────
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`page-${name}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+
+    if (name === 'dashboard') loadDashboard();
+    if (name === 'todos')     loadTodos();
+    if (name === 'users')     loadUsers();
+  }
+
+  // ─── DASHBOARD ───────────────────────────────────────────
+  async function loadDashboard() {
+    try {
+      const [todos, users] = await Promise.all([
+        api('/api/todos/'),
+        api('/api/users/')
+      ]);
+      const done = todos.filter(t => t.is_completed).length;
+      document.getElementById('stat-total').textContent = todos.length;
+      document.getElementById('stat-done').textContent = done;
+      document.getElementById('stat-users').textContent = users.length;
+
+      const body = document.getElementById('dash-todos-body');
+      const last5 = todos.slice(-5).reverse();
+      if (!last5.length) {
+        body.innerHTML = '<tr><td colspan="2" class="empty-state">Vazifalar yo\'q</td></tr>';
+        return;
+      }
+      body.innerHTML = last5.map(t => `
+        <tr>
+          <td>${esc(t.name)}</td>
+          <td><span class="badge ${t.is_completed ? 'done' : 'pending'}">
+            ${t.is_completed ? 'Bajarilgan' : 'Jarayonda'}
+          </span></td>
+        </tr>`).join('');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // ─── TODOS ────────────────────────────────────────────────
+  async function loadTodos() {
+    try {
+      allTodos = await api('/api/todos/');
+      renderTodos(allTodos);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function renderTodos(list) {
+    const body = document.getElementById('todos-body');
+    if (!list.length) {
+      body.innerHTML = '<tr><td colspan="5" class="empty-state">Vazifalar yo\'q</td></tr>';
+      return;
+    }
+    body.innerHTML = list.map(t => `
+      <tr>
+        <td style="color:var(--muted)">#${t.id}</td>
+        <td><strong>${esc(t.name)}</strong></td>
+        <td style="color:var(--muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+          ${esc(t.description || '-')}
+        </td>
+        <td><span class="badge ${t.is_completed ? 'done' : 'pending'}">
+          ${t.is_completed ? 'Bajarilgan' : 'Jarayonda'}
+        </span></td>
+        <td>
+          <div class="action-btns">
+            <button class="btn-icon btn-edit" onclick="editTodo(${t.id})">Tahrir</button>
+            <button class="btn-icon btn-del"  onclick="deleteTodo(${t.id})">O'chir</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  function filterTodos() {
+    const q = document.getElementById('todo-search').value.toLowerCase();
+    renderTodos(allTodos.filter(t =>
+      t.name.toLowerCase().includes(q) ||
+      (t.description || '').toLowerCase().includes(q)
+    ));
+  }
+
+  function openTodoModal(todo = null) {
+    document.getElementById('todo-modal-title').textContent = todo ? 'Vazifani tahrirlash' : 'Yangi Vazifa';
+    document.getElementById('todo-edit-id').value = todo ? todo.id : '';
+    document.getElementById('todo-name').value = todo ? todo.name : '';
+    document.getElementById('todo-desc').value = todo ? (todo.description || '') : '';
+    document.getElementById('todo-status').value = todo ? String(todo.is_completed) : 'false';
+    document.getElementById('todo-modal').classList.add('open');
+  }
+
+  function editTodo(id) {
+    const todo = allTodos.find(t => t.id === id);
+    if (todo) openTodoModal(todo);
+  }
+
+  async function saveTodo() {
+    const id   = document.getElementById('todo-edit-id').value;
+    const name = document.getElementById('todo-name').value.trim();
+    const desc = document.getElementById('todo-desc').value.trim();
+    const done = document.getElementById('todo-status').value === 'true';
+
+    if (!name) { showToast('Vazifa nomi bo\'sh bo\'lishi mumkin emas', 'error'); return; }
+
+    try {
+      if (id) {
+        await api(`/api/todos/${id}`, 'PUT', { name, description: desc, is_completed: done });
+        showToast('Vazifa yangilandi!', 'success');
+      } else {
+        if (!CURRENT_USER) { showToast('Avval tizimga kiring', 'error'); return; }
+        await api('/api/todos/', 'POST', { name, description: desc, is_completed: done, user_id: CURRENT_USER.id });
+        showToast('Vazifa qo\'shildi!', 'success');
+      }
+      closeModal('todo-modal');
+      loadTodos();
+      loadDashboard();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function deleteTodo(id) {
+    if (!confirm('Bu vazifani o\'chirishni tasdiqlaysizmi?')) return;
+    try {
+      await api(`/api/todos/${id}`, 'DELETE');
+      showToast('Vazifa o\'chirildi!', 'success');
+      loadTodos(); loadDashboard();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  // ─── USERS ────────────────────────────────────────────────
+  async function loadUsers() {
+    try {
+      allUsers = await api('/api/users/');
+      const body = document.getElementById('users-body');
+      if (!allUsers.length) {
+        body.innerHTML = '<tr><td colspan="5" class="empty-state">Foydalanuvchilar yo\'q</td></tr>';
+        return;
+      }
+      body.innerHTML = allUsers.map(u => `
+        <tr>
+          <td style="color:var(--muted)">#${u.id}</td>
+          <td><strong>${esc(u.first_name)}</strong></td>
+          <td>${esc(u.last_name)}</td>
+          <td><span style="color:var(--accent);font-weight:600">${(u.todos || []).length}</span> ta</td>
+          <td>
+            <div class="action-btns">
+              <button class="btn-icon btn-edit" onclick="editUser(${u.id})">Tahrir</button>
+              <button class="btn-icon btn-del"  onclick="deleteUser(${u.id})">O'chir</button>
             </div>
-        `;
+          </td>
+        </tr>`).join('');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
 
-        if (u.todos.length === 0) {
-            html += `<p class="text-gray-400">Todo yo‘q</p>`;
-        }
+  function editUser(id) {
+    const u = allUsers.find(x => x.id === id);
+    if (!u) return;
+    document.getElementById('user-edit-id').value = u.id;
+    document.getElementById('user-firstname').value = u.first_name;
+    document.getElementById('user-lastname').value = u.last_name;
+    document.getElementById('user-modal').classList.add('open');
+  }
 
-        u.todos.forEach(t => {
-            html += `
-            <div class="flex justify-between items-center bg-gray-50 p-2 rounded mb-2">
-                <span class="${t.is_completed ? 'line-through text-gray-400' : ''}">
-                    ${t.name} - ${t.description}
-                </span>
+  async function saveUser() {
+    const id = document.getElementById('user-edit-id').value;
+    const first_name = document.getElementById('user-firstname').value.trim();
+    const last_name  = document.getElementById('user-lastname').value.trim();
+    if (!first_name || !last_name) { showToast('Barcha maydonlar to\'ldirilsin', 'error'); return; }
+    try {
+      await api(`/api/users/${id}`, 'PUT', { first_name, last_name, username: '', password: '' });
+      showToast('Foydalanuvchi yangilandi!', 'success');
+      closeModal('user-modal');
+      loadUsers();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
 
-                <div>
-                    <button onclick="toggle(${t.id}, '${t.name}', '${t.description}', ${!t.is_completed})"
-                        class="bg-green-500 text-white px-2 py-1 rounded text-sm">
-                        ✔
-                    </button>
+  async function deleteUser(id) {
+    if (!confirm('Bu foydalanuvchini o\'chirishni tasdiqlaysizmi?')) return;
+    try {
+      await api(`/api/users/${id}`, 'DELETE');
+      showToast('Foydalanuvchi o\'chirildi!', 'success');
+      loadUsers();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
 
-                    <button onclick="deleteTodo(${t.id})"
-                        class="bg-red-500 text-white px-2 py-1 rounded text-sm">
-                        🗑
-                    </button>
-                </div>
-            </div>`;
-        });
+  // ─── UTILS ────────────────────────────────────────────────
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
 
-        html += `</div>`;
-        list.innerHTML += html;
+  function esc(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  // Tashqariga bosganda modal yopilsin
+  document.querySelectorAll('.modal-bg').forEach(bg => {
+    bg.addEventListener('click', e => {
+      if (e.target === bg) bg.classList.remove('open');
     });
-}
+  });
 
-async function addUser() {
-    await fetch(API + "/users/", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-            first_name: first_name.value,
-            last_name: last_name.value
-        })
-    });
-    load();
-}
-
-async function addTodo() {
-    await fetch(API + "/todos/", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-            name: todo_name.value,
-            description: todo_desc.value,
-            user_id: Number(userSelect.value)
-        })
-    });
-    load();
-}
-
-async function deleteUser(id){
-    await fetch(API + "/users/" + id, {method:"DELETE"});
-    load();
-}
-
-async function deleteTodo(id){
-    await fetch(API + "/todos/" + id, {method:"DELETE"});
-    load();
-}
-
-async function toggle(id, name, description, status){
-    await fetch(API + "/todos/" + id, {
-        method:"PUT",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({name, description, is_completed: status})
-    });
-    load();
-}
-
-load();
+  // ─── STARTUP ─────────────────────────────────────────────
+  if (TOKEN) {
+    initApp();
+  }
 </script>
-
 </body>
 </html>

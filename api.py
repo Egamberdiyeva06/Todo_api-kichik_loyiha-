@@ -1,9 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends
+import security
+import jwt
+
+from typing import List
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
-from schemas import UserCreate, UserOut, TodoCreate, TodoOut, TodoUpdate
-from database import Base, get_db, engine
+from fastapi import Depends, HTTPException, status, APIRouter
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
 from models import Todo, User
+from database import Base, get_db, engine
+from schemas import TodoCreate, TodoOut, TodoUpdate, UserCreate, UserOut, Token
 
 
 Base.metadata.create_all(bind=engine)
@@ -12,14 +18,57 @@ todos_router = APIRouter(prefix='/api/todos', tags=["Todos"])
 
 
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token yaroqsiz yoki muddati tugagan"
+    )
+    try:
+        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except jwt.InvalidTokenError:
+        raise credentials_exception
+
+    user = db.scalar(select(User).where(User.id == int(user_id)))
+    if user is None:
+        raise credentials_exception
+
+    return user
+
+
 @users_router.post("/", response_model=UserOut)
 def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
-    user = User(**user_in.model_dump())
+    user = db.scalar(select(User).where(User.first_name == user_in.first_name, User.last_name == user_in.last_name))
+    if user:
+        raise HTTPException(status_code=400, detail="Bunday foydalanuvchi mavjud")
+
+    user_dict = user_in.model_dump()
+    hashed_password = security.get_password_hash(user_dict.pop("password"))
+    
+    user = User(**user_dict, hashed_password=hashed_password)
+
     db.add(user)
     db.commit()
     db.refresh(user)
 
     return user
+
+@users_router.post('/login', response_model=Token)
+def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(User.username == form.username))
+    if not user:
+        raise HTTPException(status_code=400, detail="Bunday foydalanuvchi mavjud emas")
+
+    if not security.verify_password(form.password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Usename yoki parol noto'g'ri")
+
+    access_token = security.create_access_token(data={"sub": str(user.id)})
+    return {"access_token": access_token, "token_type": "bearer"}
+
 
 
 @users_router.get("/", response_model=list[UserOut])

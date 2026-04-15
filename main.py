@@ -3,6 +3,7 @@ from api import users_router, todos_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
+
 app = FastAPI()
 
 app.add_middleware(
