@@ -1,15 +1,38 @@
-from pydantic import BaseModel, Field
-from typing import List
-
+from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional
 
 class UserBase(BaseModel):
     first_name: str = Field(max_length=100)
     last_name: str = Field(max_length=100)
+    username: str = Field(min_length=3, max_length=50)
 
 
 class UserCreate(UserBase):
-    username: str = Field(min_length=3, max_length=50)
-    password: str = Field(min_length=6, max_length=100)
+    password: str = Field(min_length=4, max_length=100)
+
+class UserOut(UserBase):
+    id: int
+    todos: List["TodoOut"] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TodoBase(BaseModel):
+    name: str = Field(max_length=100)
+    description: Optional[str] = Field(None, max_length=200)
+
+class TodoCreate(TodoBase):
+    pass
+
+class TodoUpdate(TodoBase):
+    is_completed: bool = False
+
+class TodoOut(TodoBase):
+    id: int
+    is_completed: bool
+    user_id: int
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Token(BaseModel):
@@ -17,34 +40,4 @@ class Token(BaseModel):
     token_type: str
 
 
-class UserOut(UserBase):
-    id: int
-    todos: List["TodoOut"] = Field(default_factory=list)
-
-    class Config:
-        from_attributes = True
-
-
-
-class TodoBase(BaseModel):
-    name: str = Field(max_length=100)
-    description: str = Field(max_length=200)  
-    user_id: int
-
-
-    
-class TodoCreate(TodoBase):
-    pass  
-
-class TodoUpdate(BaseModel):
-    name: str = Field(max_length=100)
-    description: str = Field(max_length=200)
-    is_completed: bool = Field(default=False)
-
-
-class TodoOut(TodoBase):
-    id: int = Field(ge=1)
-    is_completed: bool = Field(default=False)
-    
-    class Config:
-        from_attributes = True
+UserOut.model_rebuild()
