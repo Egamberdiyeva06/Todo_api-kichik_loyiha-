@@ -1,6 +1,9 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Integer, Boolean, ForeignKey
+from sqlalchemy import String, Integer, Boolean, ForeignKey, DateTime
 from typing import List
+from sqlalchemy.sql import func
+from datetime import datetime
+
 
 from database import Base
 
@@ -25,6 +28,10 @@ class Todo(Base):
     name: Mapped[str] = mapped_column(String(length=100))
     description: Mapped[str] = mapped_column(String(length=200), nullable=True)
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    priority: Mapped[str] = mapped_column(String(20), default="medium")
+    deadline: Mapped[str] = mapped_column(String(50), nullable=True)
+
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     user: Mapped["User"] = relationship(back_populates='todos')

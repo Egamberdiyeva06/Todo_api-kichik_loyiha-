@@ -1,9 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from database import engine, Base
 from api import users_router, todos_router
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Todo App API")
 
