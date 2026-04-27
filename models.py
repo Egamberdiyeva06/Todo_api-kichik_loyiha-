@@ -18,7 +18,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(length=200))
 
 
-    todos: Mapped[List['Todo']] = relationship(back_populates='user', cascade='all, delete-orphan')
+    todos: Mapped[List['Todo']] = relationship(back_populates='user', cascade='all, delete-orphan',
+                                               lazy="selectin")
     
 
 class Todo(Base):
@@ -34,4 +35,4 @@ class Todo(Base):
     deadline: Mapped[str] = mapped_column(String(50), nullable=True)
 
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
-    user: Mapped["User"] = relationship(back_populates='todos')
+    user: Mapped["User"] = relationship(back_populates='todos', lazy="selectin")

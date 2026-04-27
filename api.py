@@ -1,12 +1,15 @@
 import security
 import jwt
+import asyncio
 
 from typing import List
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
-from fastapi import Depends, HTTPException, status, APIRouter
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends, HTTPException, status, APIRouter, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
+from email_service import send_welcome_email
 from models import Todo, User
 from database import get_db
 from schemas import TodoCreate, TodoOut, TodoUpdate, UserCreate, UserOut, Token
@@ -19,7 +22,7 @@ todos_router = APIRouter(prefix='/api/todos', tags=["Todos"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token yaroqsiz yoki muddati tugagan",
@@ -33,15 +36,16 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except jwt.PyJWTError:
         raise credentials_exception
 
-    user = db.scalar(select(User).where(User.id == int(user_id)))
+    user = await db.scalar(select(User).where(User.id == int(user_id)))
     if user is None:
         raise credentials_exception
+    
     return user
 
 
 @users_router.post("/", response_model=UserOut)
-def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.scalar(select(User).where(User.username == user_in.username))
+async def create_user(bg_tasks: BackgroundTasks, user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+    existing_user = await db.scalar(select(User).where(User.username == user_in.username))
     if existing_user:
         raise HTTPException(status_code=400, detail="Bunday foydalanuvchi nomi band")
 
@@ -51,15 +55,19 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
     new_user = User(**user_dict, hashed_password=hashed_password)
 
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    
+    bg_tasks.add_task(send_welcome_email, f"{new_user.username}@gmail.com")
 
     return new_user
 
 
 @users_router.post('/login', response_model=Token)
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.scalar(select(User).where(User.username == form.username))
+async def login(form: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.username == form.username))
+    user = result.scalar_one_or_none()
+
     if not user:
         raise HTTPException(status_code=400, detail="Bunday foydalanuvchi mavjud emas")
 
@@ -72,53 +80,53 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
 
 
 @users_router.get("/", response_model=List[UserOut])
-def get_users(db: Session = Depends(get_db)):
-    users = db.scalars(select(User).options(selectinload(User.todos))).all()
+async def get_users(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).options(selectinload(User.todos)))
+    users = result.scalars().all()
     return users
 
 
 
 @todos_router.post('/', response_model=TodoOut)
-def create_todo(todo_in: TodoCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def create_todo(todo_in: TodoCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     new_todo = Todo(**todo_in.model_dump(), user_id=current_user.id)
 
     db.add(new_todo)
-    db.commit()
-    db.refresh(new_todo)
+    await db.commit()
+    await db.refresh(new_todo)
 
     return new_todo
 
 
 @todos_router.get('/', response_model=List[TodoOut])
-def get_todos(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    todos = db.scalars(select(Todo).where(Todo.user_id == current_user.id)).all()
-
-    return todos
+async def get_todos(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    result = await db.execute(select(Todo).where(Todo.user_id == current_user.id))
+    return result.scalars().all()
 
 
 @todos_router.put("/{todo_id}", response_model=TodoOut)
-def update_todo(todo_id: int, todo_in: TodoUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    todo = db.scalar(select(Todo).where(Todo.id == todo_id, Todo.user_id == current_user.id))
+async def update_todo(todo_id: int, todo_in: TodoUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    todo = await db.scalar(select(Todo).where(Todo.id == todo_id, Todo.user_id == current_user.id))
     if not todo:
         raise HTTPException(status_code=404, detail="Vazifa topilmadi")
 
     for key, value in todo_in.model_dump().items():
         setattr(todo, key, value)
 
-    db.commit()
-    db.refresh(todo)
+    await db.commit()
+    await db.refresh(todo)
 
     return todo
 
 
 
 @todos_router.delete("/{todo_id}")
-def delete_todo(todo_id: int, db: Session=Depends(get_db), current_user: User = Depends(get_current_user)):
-    todo = db.scalar(select(Todo).where(Todo.id == todo_id, Todo.user_id == current_user.id))
+async def delete_todo(todo_id: int, db: AsyncSession=Depends(get_db), current_user: User = Depends(get_current_user)):
+    todo = await db.scalar(select(Todo).where(Todo.id == todo_id, Todo.user_id == current_user.id))
     if not todo:
         raise HTTPException(status_code=404, detail="Vazifa topilmadi!")
 
-    db.delete(todo)
-    db.commit()
+    await db.delete(todo)
+    await db.commit()
 
     return {"message": f"{todo_id} - raqamli vazifa o'chirildi!"}
